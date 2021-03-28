@@ -66,12 +66,8 @@ export = (app: Probot) => {
         repo: repo,
         branch: branch || "",
       })
-      let restricted = !branch_protect.data.allow_force_pushes?.enabled
-        && branch_protect.data.required_linear_history?.enabled;
-      //doesn't exist on most github accounts.
-      //&& branch_protect.data.restrictions?.users[0].login == username;
 
-      app.log.info("Branch " + branch + " is " + (restricted ? "restricted" : "not restricted") + "with no force pushes and linear history");
+      app.log.info("Branch " + branch + " is " + (branch_protect.data.enabled ? "restricted" : "not restricted"));
 
       //look up the environment ids, and filter an environments out that lack ids.  Assuming ids are always positive :shrug:
       let data = Array.from(new Set(pending.data.map(env => env.environment.id == undefined ? -1 : env.environment.id).filter(val => val != -1)));
