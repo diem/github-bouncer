@@ -1,6 +1,6 @@
 # bouncer
 
-> A GitHub App built with [Probot](https://github.com/probot/probot) that Auto approval of github action jobs that use environments to access secrets based on branch and submitter.
+> A GitHub App built with [Probot](https://github.com/probot/probot) that Auto approves of github action jobs that use environments to access secrets based on branch and submitter.
 
 ## Setup
 
