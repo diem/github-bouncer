@@ -74,21 +74,23 @@ export = (app: Probot) => {
       }
 
       app.log.info(job_id + ": Branch " + branch + " is " + (branch_protect.data == null ? "restricted" : "not restricted"));
-      app.log.info(job_id + ": Protection data for branch " + JSON.stringify(branch_protect.data, null, 2));
       app.log.info(job_id + ": Protection enabled " + (branch_protect.data.enabled == true));
-      app.log.info(job_id + ": Protection exists " + (branch_protect.data != null));
+      app.log.info(job_id + ": Protection force admins " + (branch_protect.data.enforce_admins?.enabled != true));
 
-      if (branch_protect.data != null) {
+      if (branch_protect.data.enforce_admins?.enabled != true) {
+        app.log.info(job_id + ": Attempting to login with token.");
         //approve the build with a fresh octokit using the APPROVING_USER_TOKEN
         let clientWithAuth = new Octokit({
           auth: user_token,
         })
+        app.log.info(job_id + ": Attempting to approve.");
         let rep = await clientWithAuth.request('POST /repos/' + owner + '/' + repo + '/actions/runs/' + workflow_run_id + '/pending_deployments', {
           environment_ids: data,
           state: 'approved',
           comment: 'Auto approved by bouncer.'
         });
-        app.log.info(job_id + ": response: " + rep.data);
+        app.log.info(job_id + ": reposonse status to request to approve " + rep.status);
+        app.log.info(job_id + ": response: " + JSON.stringify(rep.data, null, 2));
       }
       app.log.info(job_id + ": end processing");
     }
