@@ -27,7 +27,7 @@ export = (app: Probot) => {
       let job_id_string = target_url.replace(RegExp('.*/'), "");
       let job_id: number = parseInt(job_id_string);
 
-      app.log.info("job_id: " + job_id);
+      app.log.info(job_id + " begin processing");
 
       //look up the job from the
       let job = await context.octokit.actions.getJobForWorkflowRun({
@@ -39,7 +39,7 @@ export = (app: Probot) => {
       //get the run of the job in the workflow that needs approval
       let workflow_run_id = job.data.run_id
 
-      app.log.info("workflow_run_id: " + workflow_run_id);
+      app.log.info(job_id + ": in workflow.run_id: " + workflow_run_id);
 
       let workflow = await context.octokit.actions.getWorkflowRun({
         owner: owner,
@@ -47,12 +47,8 @@ export = (app: Probot) => {
         run_id: workflow_run_id,
       });
 
-      let branch = workflow.data.head_branch
-      app.log.info("match on " + branch);
-
-      //maybe filter branches in the future?
-      //branch.search('^.*/release-[^/]*$|^.*/test[^/]*$|^.*/gha-test-[^/]*$|^.*/master$|^.*/main') != -1) {
-
+      let branch = workflow.data.head_branch;
+      app.log.info(job_id + ": match on branch: " + branch);
 
       //get pending deployment for the workflow run.
       let pending = await context.octokit.actions.getPendingDeploymentsForRun({
@@ -60,37 +56,37 @@ export = (app: Probot) => {
         repo: repo,
         run_id: workflow_run_id,
       });
+      if (pending.status != 200) {
+        app.log.info(job_id + ": could not look up pending deployments for workflow_run_id: " + workflow_run_id + " on branch " + branch);
+      }
+
+      //look up the environment ids, and filter an environments out that lack ids.  Assuming ids are always positive :shrug:
+      let data = Array.from(new Set(pending.data.map(env => env.environment.id == undefined ? -1 : env.environment.id).filter(val => val != -1)));
+      app.log.info(job_id + ": environment ids needing approval: " + pending.data.map(env => env.environment.id + " : " + env.environment.id).join(", "));
 
       let branch_protect = await context.octokit.repos.getBranchProtection({
         owner: owner,
         repo: repo,
         branch: branch || "",
       })
-
-      app.log.info("Branch " + branch + " is " + (branch_protect.data.enabled ? "restricted" : "not restricted"));
-
-      //look up the environment ids, and filter an environments out that lack ids.  Assuming ids are always positive :shrug:
-      let data = Array.from(new Set(pending.data.map(env => env.environment.id == undefined ? -1 : env.environment.id).filter(val => val != -1)));
-      app.log.info("pending deployment: " + JSON.stringify(pending.data, null, 2));
-
-      //can the current user approve... since the user is a bot the answer is sadly always no.   maybe this'll change in the future.
-      let can_approve = !pending.data.find(env => env.current_user_can_approve == false);
-      if (!can_approve) {
-        app.log.error("current user can not approve");
+      if (branch_protect.status != 200) {
+        app.log.info(job_id + ": could not look up branch protection on branch " + branch);
       }
 
-      //approve the build with a fresh octokit using the APPROVING_USER_TOKEN
-      let clientWithAuth = new Octokit({
-        auth: user_token,
-      })
-
-      let rep = await clientWithAuth.request('POST /repos/' + owner + '/' + repo + '/actions/runs/' + workflow_run_id + '/pending_deployments', {
-        environment_ids: data,
-        state: 'approved',
-        comment: 'Auto approved by bouncer.'
-      });
-      app.log.info("response: " + rep.data);
-
+      app.log.info(job_id + ": Branch " + branch + " is " + (branch_protect.data.enabled == true ? "restricted" : "not restricted"));
+      if (branch_protect.data.enabled == true) {
+        //approve the build with a fresh octokit using the APPROVING_USER_TOKEN
+        let clientWithAuth = new Octokit({
+          auth: user_token,
+        })
+        let rep = await clientWithAuth.request('POST /repos/' + owner + '/' + repo + '/actions/runs/' + workflow_run_id + '/pending_deployments', {
+          environment_ids: data,
+          state: 'approved',
+          comment: 'Auto approved by bouncer.'
+        });
+        app.log.info(job_id + ": response: " + rep.data);
+      }
+      app.log.info(job_id + ": end processing");
     }
   });
 };
