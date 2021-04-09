@@ -73,8 +73,12 @@ export = (app: Probot) => {
         app.log.info(job_id + ": could not look up branch protection on branch " + branch);
       }
 
-      app.log.info(job_id + ": Branch " + branch + " is " + (branch_protect.data.enabled == true ? "restricted" : "not restricted"));
-      if (branch_protect.data.enabled == true) {
+      app.log.info(job_id + ": Branch " + branch + " is " + (branch_protect.data == null ? "restricted" : "not restricted"));
+      app.log.info(job_id + ": Protection data for branch " + JSON.stringify(branch_protect.data, null, 2));
+      app.log.info(job_id + ": Protection enabled " + (branch_protect.data.enabled == true));
+      app.log.info(job_id + ": Protection exists " + (branch_protect.data != null));
+
+      if (branch_protect.data != null) {
         //approve the build with a fresh octokit using the APPROVING_USER_TOKEN
         let clientWithAuth = new Octokit({
           auth: user_token,
