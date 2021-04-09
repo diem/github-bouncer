@@ -59,10 +59,17 @@ export = (app: Probot) => {
       if (pending.status != 200) {
         app.log.info(job_id + ": could not look up pending deployments for workflow_run_id: " + workflow_run_id + " on branch " + branch);
       }
+      if (pending.data.length == 0) {
+        app.log.info(job_id + ": no pending deployments requiring environment approval were found.   Wierd.");
+      }
 
       //look up the environment ids, and filter an environments out that lack ids.  Assuming ids are always positive :shrug:
       let data = Array.from(new Set(pending.data.map(env => env.environment.id == undefined ? -1 : env.environment.id).filter(val => val != -1)));
-      app.log.info(job_id + ": environment ids needing approval: " + pending.data.map(env => env.environment.id + " : " + env.environment.id).join(", "));
+      app.log.info(job_id + ": environment ids needing approval (informational): " + pending.data.map(env => env.environment.name + " : " + env.environment.id).join(", "));
+      app.log.info(job_id + ": environment ids requiring approval (used in request): " + data.join(", "));
+      if (data.length == 0) {
+        app.log.info(job_id + ": no environment ids were found. This will break this request.");
+      }
 
       let branch_protect = await context.octokit.repos.getBranchProtection({
         owner: owner,
@@ -73,9 +80,7 @@ export = (app: Probot) => {
         app.log.info(job_id + ": could not look up branch protection on branch " + branch);
       }
 
-      app.log.info(job_id + ": Branch " + branch + " is " + (branch_protect.data == null ? "restricted" : "not restricted"));
-      app.log.info(job_id + ": Protection enabled " + (branch_protect.data.enabled == true));
-      app.log.info(job_id + ": Protection force admins " + (branch_protect.data.enforce_admins?.enabled == true));
+      app.log.info(job_id + ": Protection enforce admins " + (branch_protect.data.enforce_admins?.enabled == true));
 
       if (branch_protect.data.enforce_admins?.enabled == true) {
         app.log.info(job_id + ": Attempting to login with token.");
