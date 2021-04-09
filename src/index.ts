@@ -75,9 +75,9 @@ export = (app: Probot) => {
 
       app.log.info(job_id + ": Branch " + branch + " is " + (branch_protect.data == null ? "restricted" : "not restricted"));
       app.log.info(job_id + ": Protection enabled " + (branch_protect.data.enabled == true));
-      app.log.info(job_id + ": Protection force admins " + (branch_protect.data.enforce_admins?.enabled != true));
+      app.log.info(job_id + ": Protection force admins " + (branch_protect.data.enforce_admins?.enabled == true));
 
-      if (branch_protect.data.enforce_admins?.enabled != true) {
+      if (branch_protect.data.enforce_admins?.enabled == true) {
         app.log.info(job_id + ": Attempting to login with token.");
         //approve the build with a fresh octokit using the APPROVING_USER_TOKEN
         let clientWithAuth = new Octokit({
