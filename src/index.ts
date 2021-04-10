@@ -50,25 +50,34 @@ export = (app: Probot) => {
       let branch = workflow.data.head_branch;
       app.log.info(job_id + ": match on branch: " + branch);
 
-      //get pending deployment for the workflow run.
-      let pending = await context.octokit.actions.getPendingDeploymentsForRun({
-        owner: owner,
-        repo: repo,
-        run_id: workflow_run_id,
-      });
-      if (pending.status != 200) {
-        app.log.info(job_id + ": could not look up pending deployments for workflow_run_id: " + workflow_run_id + " on branch " + branch);
-      }
-      if (pending.data.length == 0) {
-        app.log.info(job_id + ": no pending deployments requiring environment approval were found.   Wierd.");
-      }
+      let data: number[] = [];
+      while (data.length == 0) {
+        //get pending deployment for the workflow run.
+        let pending = await context.octokit.actions.getPendingDeploymentsForRun({
+          owner: owner,
+          repo: repo,
+          run_id: workflow_run_id,
+        });
+        if (pending.status != 200) {
+          app.log.info(job_id + ": could not look up pending deployments for workflow_run_id: " + workflow_run_id + " on branch " + branch);
+        }
+        if (pending.data.length == 0) {
+          app.log.info(job_id + ": no pending deployments requiring environment approval were found.   Wierd.");
+        }
 
-      //look up the environment ids, and filter an environments out that lack ids.  Assuming ids are always positive :shrug:
-      let data = Array.from(new Set(pending.data.map(env => env.environment.id == undefined ? -1 : env.environment.id).filter(val => val != -1)));
-      app.log.info(job_id + ": environment ids needing approval (informational): " + pending.data.map(env => env.environment.name + " : " + env.environment.id).join(", "));
-      app.log.info(job_id + ": environment ids requiring approval (used in request): " + data.join(", "));
-      if (data.length == 0) {
-        app.log.info(job_id + ": no environment ids were found. This will break this request.");
+        //look up the environment ids, and filter an environments out that lack ids.  Assuming ids are always positive :shrug:
+        data = Array.from(new Set(pending.data.map(env => env.environment.id == undefined ? -1 : env.environment.id).filter(val => val != -1)));
+        app.log.info(job_id + ": environment ids needing approval (informational): " + pending.data.map(env => "" + env.environment.name + " : " + env.environment.id).join(", "));
+        app.log.info(job_id + ": environment ids requiring approval (used in request): " + data.join(", "));
+        if (data.length == 0) {
+          app.log.info(job_id + ": no environment ids were found. This will break this request.");
+        }
+
+        if (data.length == 0) {
+          setTimeout(() => {
+            console.log(job_id + ": Waiting for github actions to catch up with the webhooks it sends out.");
+          }, 1000);
+        }
       }
 
       let branch_protect = await context.octokit.repos.getBranchProtection({
@@ -100,4 +109,5 @@ export = (app: Probot) => {
       app.log.info(job_id + ": end processing");
     }
   });
+
 };
